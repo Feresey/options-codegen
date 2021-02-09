@@ -25,6 +25,7 @@ type Simple struct {
 
 ``` golang
 // DO NOT EDIT!!!
+
 package options
 
 type Option func(options *Simple)
