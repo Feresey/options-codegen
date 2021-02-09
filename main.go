@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"os"
+	"io/ioutil"
 	"path/filepath"
 	"strings"
 
@@ -21,6 +21,8 @@ type config struct {
 	Output           string
 	OptionTypename   string
 	OptionFuncPrefix string
+
+	ignoreOutput bool
 }
 
 type generator struct {
@@ -56,8 +58,19 @@ func (g *generator) Run() error {
 		return fmt.Errorf("get fields: %w", err)
 	}
 
-	if err := g.Generate(); err != nil {
-		return fmt.Errorf("generate options: %w", err)
+	file := g.Generate()
+
+	out := g.Output
+	if !filepath.IsAbs(g.Output) {
+		out = filepath.Join(g.Input, g.Output)
+	}
+
+	if g.config.ignoreOutput {
+		if err := file.Save(out); err != nil {
+			return fmt.Errorf("generate options: %w", err)
+		}
+	} else {
+		return file.Render(ioutil.Discard)
 	}
 
 	return nil
@@ -135,7 +148,11 @@ FIELDS:
 func (g *generator) getFieldsMap() {
 	g.fieldsMap = make(map[string]*ast.Field)
 	for _, file := range g.pkg.Syntax {
-		typ := file.Scope.Lookup(g.StructName).Decl.(*ast.TypeSpec).Type.(*ast.StructType)
+		obj := file.Scope.Lookup(g.StructName)
+		if obj == nil {
+			continue
+		}
+		typ := obj.Decl.(*ast.TypeSpec).Type.(*ast.StructType)
 		list := typ.Fields.List
 		for _, field := range list {
 			// TODO names???
@@ -163,7 +180,7 @@ func (g *generator) parseTag(line string) tag {
 	return tagNothig
 }
 
-func (g *generator) Generate() error {
+func (g *generator) Generate() *jen.File {
 	f := jen.NewFile(g.pkg.Name)
 
 	structID := jen.Id("options")
@@ -201,7 +218,7 @@ func (g *generator) Generate() error {
 			)
 	}
 
-	return f.Render(os.Stdout)
+	return f
 }
 
 func (g *generator) getType(typ types.Type) (path, typename string, stared int) {

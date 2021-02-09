@@ -41,6 +41,7 @@ func (f testFile) run(t *testing.T) {
 		Input:            "testdata",
 		OptionTypename:   "Option",
 		OptionFuncPrefix: "Option",
+		ignoreOutput:     true,
 		StructName:       strcase.ToCamel(strings.TrimSuffix(string(f), ".go")),
 	}
 
