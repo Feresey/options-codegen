@@ -4,7 +4,8 @@ import (
 	"fmt"
 	"go/ast"
 	"go/types"
-	"io/ioutil"
+	"io"
+	"os"
 	"path/filepath"
 	"strings"
 
@@ -22,7 +23,7 @@ type config struct {
 	OptionTypename   string
 	OptionFuncPrefix string
 
-	ignoreOutput bool
+	concreteOutput io.Writer
 }
 
 type generator struct {
@@ -40,11 +41,17 @@ func main() {
 	pflag.StringVarP(&g.Input, "input", "i", "", "input package")
 	pflag.StringVar(&g.OptionTypename, "typename", "Option", "name of result option type")
 	pflag.StringVar(&g.OptionFuncPrefix, "prefix", "Option", "prefix of the option functions")
-	pflag.StringVarP(&g.Output, "output", "o", "", "output file name, default is {struct_name}_options.go")
+	pflag.StringVarP(&g.Output, "output", "o", "", "output file name, (default {struct_name}_options.go)")
 	pflag.Parse()
 
+	if g.StructName == "" {
+		pflag.Usage()
+		os.Exit(2)
+	}
+
 	if err := g.Run(); err != nil {
-		panic(err)
+		println(err.Error())
+		os.Exit(1)
 	}
 }
 
@@ -62,15 +69,20 @@ func (g *generator) Run() error {
 
 	out := g.Output
 	if !filepath.IsAbs(g.Output) {
-		out = filepath.Join(g.Input, g.Output)
+		rel, err := filepath.Rel(g.Input, g.Output)
+		if err != nil {
+			out = filepath.Join(g.Input, g.Output)
+		} else {
+			out = filepath.Join(g.Input, rel)
+		}
 	}
 
-	if !g.config.ignoreOutput {
+	if g.config.concreteOutput == nil {
 		if err := file.Save(out); err != nil {
 			return fmt.Errorf("generate options: %w", err)
 		}
 	} else {
-		return file.Render(ioutil.Discard)
+		return file.Render(g.concreteOutput)
 	}
 
 	return nil
@@ -78,7 +90,7 @@ func (g *generator) Run() error {
 
 func (g *generator) Init() {
 	if g.config.Output == "" {
-		g.config.Output = strcase.ToSnake(g.config.StructName) + "_options.go"
+		g.config.Output = filepath.Join(g.Input, strcase.ToSnake(g.config.StructName)+"_options.go")
 	}
 }
 
@@ -162,7 +174,7 @@ func (g *generator) getFieldsMap() {
 	}
 }
 
-//go:generate go run github.com/alvaroloes/enumer -type tag -trimprefix tag
+//go:generate go run github.com/alvaroloes/enumer -type tag -trimprefix tag -transform snake
 type tag int
 
 const (
@@ -182,6 +194,7 @@ func (g *generator) parseTag(line string) tag {
 
 func (g *generator) Generate() *jen.File {
 	f := jen.NewFile(g.pkg.Name)
+	f.HeaderComment("// DO NOT EDIT!!!")
 
 	structID := jen.Id("options")
 

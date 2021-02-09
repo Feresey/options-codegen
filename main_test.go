@@ -37,12 +37,11 @@ type testFile string
 
 func (f testFile) run(t *testing.T) {
 	c := config{
-		Output:           "_ignore.go",
 		Input:            "testdata",
 		OptionTypename:   "Option",
 		OptionFuncPrefix: "Option",
-		ignoreOutput:     true,
-		StructName:       strcase.ToCamel(strings.TrimSuffix(string(f), ".go")),
+		// concreteOutput:   os.Stdout,
+		StructName: strcase.ToCamel(strings.TrimSuffix(string(f), ".go")),
 	}
 
 	g := generator{
