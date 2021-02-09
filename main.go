@@ -65,7 +65,7 @@ func (g *generator) Run() error {
 		out = filepath.Join(g.Input, g.Output)
 	}
 
-	if g.config.ignoreOutput {
+	if !g.config.ignoreOutput {
 		if err := file.Save(out); err != nil {
 			return fmt.Errorf("generate options: %w", err)
 		}
