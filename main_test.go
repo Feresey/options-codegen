@@ -19,23 +19,25 @@ func Test(t *testing.T) {
 		if file.IsDir() {
 			continue
 		}
-		if filepath.Ext(file.Name()) != ".go" {
+		basename := filepath.Base(file.Name())
+		if filepath.Ext(basename) != ".go" ||
+			strings.HasPrefix(basename, "_") ||
+			strings.HasSuffix(basename, "_options.go") {
 			continue
 		}
-		if strings.HasPrefix(filepath.Base(file.Name()), "_") {
-			continue
-		}
+
 		tests = append(tests, file.Name())
 	}
 
 	for _, test := range tests {
-		t.Run(test, testFile(test).run)
+		t.Run(test, testFile(test).Helper)
 	}
 }
 
 type testFile string
 
-func (f testFile) run(t *testing.T) {
+func (f testFile) Helper(t *testing.T) {
+	t.Helper()
 	c := config{
 		Input:            "testdata",
 		OptionTypename:   "Option",
